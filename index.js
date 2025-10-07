@@ -12,32 +12,36 @@ const io = new Server(server, {
 let clients = [];
 
 io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
   clients.push(socket.id);
 
-  // Broadcast offer to the other client
+  socket.on("ready", () => {
+    const other = clients.find(id => id !== socket.id);
+    if (other) {
+      // Tell the second client to start the offer
+      socket.emit("initiate-call");
+    }
+  });
+
   socket.on("offer", (offer) => {
-    const other = clients.find((id) => id !== socket.id);
+    const other = clients.find(id => id !== socket.id);
     if (other) socket.to(other).emit("offer", offer);
   });
 
-  // Broadcast answer to the other client
   socket.on("answer", (answer) => {
-    const other = clients.find((id) => id !== socket.id);
+    const other = clients.find(id => id !== socket.id);
     if (other) socket.to(other).emit("answer", answer);
   });
 
-  // Broadcast ICE candidates to the other client
   socket.on("ice-candidate", (candidate) => {
-    const other = clients.find((id) => id !== socket.id);
+    const other = clients.find(id => id !== socket.id);
     if (other) socket.to(other).emit("ice-candidate", candidate);
   });
 
   socket.on("disconnect", () => {
-    clients = clients.filter((id) => id !== socket.id);
-    console.log("Client disconnected:", socket.id);
+    clients = clients.filter(id => id !== socket.id);
   });
 });
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Signaling server running on port ${PORT}`));
