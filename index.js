@@ -35,7 +35,6 @@ io.on("connection", (socket) => {
   socket.on("register-email", (email) => {
     const client = clients.find((c) => c.socketId === socket.id);
     if (client) {
-      // If email changed, disconnect any current call
       if (client.email && client.email !== email) {
         io.to(socket.id).emit("disconnect-call");
       }
@@ -45,24 +44,16 @@ io.on("connection", (socket) => {
     }
   });
 
-  // One-to-one start call
-  socket.on("start-call", (targetUserId) => {
-    const target = clients.find((c) => c.socketId === targetUserId);
+  // Forward initiate-call with offer to target
+  socket.on("initiate-call", ({ targetId, offer }) => {
+    const target = clients.find((c) => c.socketId === targetId);
     if (target) {
-      console.log(`📨 [START-CALL] ${socket.id} -> ${targetUserId}`);
-      io.to(targetUserId).emit("initiate-call", socket.id);
+      console.log(`📨 [INITIATE-CALL] ${socket.id} -> ${targetId}`);
+      io.to(targetId).emit("initiate-call", { callerId: socket.id, offer });
     }
   });
 
-  // Offer sent from caller to callee
-  socket.on("offer", ({ offer, targetUserId }) => {
-    const target = clients.find((c) => c.socketId === targetUserId);
-    if (target) {
-      io.to(targetUserId).emit("offer", { offer, callerId: socket.id });
-    }
-  });
-
-  // Answer sent from callee to caller
+  // Answer from callee to caller
   socket.on("answer", ({ answer, targetUserId }) => {
     const target = clients.find((c) => c.socketId === targetUserId);
     if (target) {
