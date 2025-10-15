@@ -67,7 +67,8 @@ io.on("connection", (socket) => {
       const otherClients = clients.filter((clientId) => clientId !== id);
       io.to(id).emit("connected-users", otherClients);
     });
-});
+  });
+}); // <-- Close io.on("connection")
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`✅ Signaling server running on port ${PORT}`));
