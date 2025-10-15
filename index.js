@@ -11,6 +11,11 @@ const io = new Server(server, {
 
 let clients = [];
 
+app.get("/" , (req , res)=>
+{
+  res.send("signal server listening")
+})
+
 io.on("connection", (socket) => {
   console.log(`🟢 [CONNECT] ${socket.id}`);
   clients.push(socket.id);
