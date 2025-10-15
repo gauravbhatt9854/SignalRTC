@@ -11,20 +11,22 @@ const io = new Server(server, {
 
 let clients = [];
 
-app.get("/" , (req , res)=>
-{
-  res.send("signal server listening")
-})
+app.get("/", (req, res) => {
+  res.send("signal server listening");
+});
 
 io.on("connection", (socket) => {
   console.log(`🟢 [CONNECT] ${socket.id}`);
   clients.push(socket.id);
   io.emit("connected-users", clients);
 
-  socket.on("ready", () => {
-    console.log(`📞 [READY] ${socket.id} is ready`);
-    const other = clients.find((id) => id !== socket.id);
-    if (other) io.to(other).emit("initiate-call");
+
+  // New start-call event from frontend
+  socket.on("start-call", (targetUserId) => {
+    console.log(`📨 [START-CALL] from ${socket.id} to ${targetUserId}`);
+    if (clients.includes(targetUserId)) {
+      io.to(targetUserId).emit("initiate-call");
+    }
   });
 
   socket.on("offer", (offer) => {
@@ -51,7 +53,6 @@ io.on("connection", (socket) => {
     io.emit("connected-users", clients);
   });
 });
-
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`✅ Signaling server running on port ${PORT}`));
