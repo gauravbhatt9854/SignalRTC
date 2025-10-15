@@ -9,49 +9,64 @@ const io = new Server(server, {
   cors: { origin: "*" },
 });
 
+// Keep track of all connected sockets
 let clients = [];
 
 app.get("/", (req, res) => {
-  res.send("signal server listening");
+  res.send("Signal server listening");
 });
 
 io.on("connection", (socket) => {
   console.log(`🟢 [CONNECT] ${socket.id}`);
   clients.push(socket.id);
-  io.emit("connected-users", clients);
 
+  // Send updated list of connected users to all clients, excluding themselves
+  clients.forEach((id) => {
+    const otherClients = clients.filter((clientId) => clientId !== id);
+    io.to(id).emit("connected-users", otherClients);
+  });
 
-  // New start-call event from frontend
+  // One-to-one start call
   socket.on("start-call", (targetUserId) => {
-    console.log(`📨 [START-CALL] from ${socket.id} to ${targetUserId}`);
     if (clients.includes(targetUserId)) {
-      io.to(targetUserId).emit("initiate-call");
+      console.log(`📨 [START-CALL] ${socket.id} -> ${targetUserId}`);
+      io.to(targetUserId).emit("initiate-call", socket.id); // send caller id
     }
   });
 
-  socket.on("offer", (offer) => {
-    console.log(`📨 [OFFER] from ${socket.id}`);
-    const other = clients.find((id) => id !== socket.id);
-    if (other) io.to(other).emit("offer", offer);
+  // Offer sent from caller to callee
+  socket.on("offer", ({ offer, targetUserId }) => {
+    if (clients.includes(targetUserId)) {
+      console.log(`📨 [OFFER] from ${socket.id} to ${targetUserId}`);
+      io.to(targetUserId).emit("offer", { offer, callerId: socket.id });
+    }
   });
 
-  socket.on("answer", (answer) => {
-    console.log(`📩 [ANSWER] from ${socket.id}`);
-    const other = clients.find((id) => id !== socket.id);
-    if (other) io.to(other).emit("answer", answer);
+  // Answer sent from callee to caller
+  socket.on("answer", ({ answer, targetUserId }) => {
+    if (clients.includes(targetUserId)) {
+      console.log(`📩 [ANSWER] from ${socket.id} to ${targetUserId}`);
+      io.to(targetUserId).emit("answer", { answer, calleeId: socket.id });
+    }
   });
 
-  socket.on("ice-candidate", (candidate) => {
-    console.log(`❄️ [ICE] from ${socket.id}`);
-    const other = clients.find((id) => id !== socket.id);
-    if (other) io.to(other).emit("ice-candidate", candidate);
+  // ICE candidates sent between the two peers
+  socket.on("ice-candidate", ({ candidate, targetUserId }) => {
+    if (clients.includes(targetUserId)) {
+      io.to(targetUserId).emit("ice-candidate", { candidate, from: socket.id });
+    }
   });
 
+  // Remove disconnected socket
   socket.on("disconnect", () => {
     console.log(`🔴 [DISCONNECT] ${socket.id}`);
     clients = clients.filter((id) => id !== socket.id);
-    io.emit("connected-users", clients);
-  });
+
+    // Update remaining clients with new list (excluding themselves)
+    clients.forEach((id) => {
+      const otherClients = clients.filter((clientId) => clientId !== id);
+      io.to(id).emit("connected-users", otherClients);
+    });
 });
 
 const PORT = process.env.PORT || 5000;
