@@ -6,42 +6,47 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: "*" }, // allow all origins
+  cors: { origin: "*" },
 });
 
 let clients = [];
 
 io.on("connection", (socket) => {
+  console.log(`🟢 [CONNECT] ${socket.id}`);
   clients.push(socket.id);
+  io.emit("connected-users", clients);
 
   socket.on("ready", () => {
-    const other = clients.find(id => id !== socket.id);
-    if (other) {
-      // Tell the second client to start the offer
-      socket.emit("initiate-call");
-    }
+    console.log(`📞 [READY] ${socket.id} is ready`);
+    const other = clients.find((id) => id !== socket.id);
+    if (other) io.to(other).emit("initiate-call");
   });
 
   socket.on("offer", (offer) => {
-    const other = clients.find(id => id !== socket.id);
-    if (other) socket.to(other).emit("offer", offer);
+    console.log(`📨 [OFFER] from ${socket.id}`);
+    const other = clients.find((id) => id !== socket.id);
+    if (other) io.to(other).emit("offer", offer);
   });
 
   socket.on("answer", (answer) => {
-    const other = clients.find(id => id !== socket.id);
-    if (other) socket.to(other).emit("answer", answer);
+    console.log(`📩 [ANSWER] from ${socket.id}`);
+    const other = clients.find((id) => id !== socket.id);
+    if (other) io.to(other).emit("answer", answer);
   });
 
   socket.on("ice-candidate", (candidate) => {
-    const other = clients.find(id => id !== socket.id);
-    if (other) socket.to(other).emit("ice-candidate", candidate);
+    console.log(`❄️ [ICE] from ${socket.id}`);
+    const other = clients.find((id) => id !== socket.id);
+    if (other) io.to(other).emit("ice-candidate", candidate);
   });
 
   socket.on("disconnect", () => {
-    clients = clients.filter(id => id !== socket.id);
+    console.log(`🔴 [DISCONNECT] ${socket.id}`);
+    clients = clients.filter((id) => id !== socket.id);
+    io.emit("connected-users", clients);
   });
 });
 
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Signaling server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`✅ Signaling server running on port ${PORT}`));
